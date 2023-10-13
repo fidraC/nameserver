@@ -15,7 +15,7 @@ type Entry struct {
 	WAF    bool
 }
 
-var entries map[string]Entry // Map of domain name to IP/Port/WAF
+var entries =  make(map[string]Entry) // Map of domain name to IP/Port/WAF
 
 func AddEntry(domain string, e Entry) {
 	entries[domain] = e
