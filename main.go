@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"nameserver/api"
-	"os"
 	"flag"
 
 	"github.com/gin-gonic/gin"
@@ -30,7 +29,7 @@ func main() {
 	flag.StringVar(&http_addr, "http-addr", "127.0.0.1:8001", "HTTP Listener Address")
 	flag.StringVar(&dns_addr, "dns-addr", ":53", "DNS Listener Address")
 	flag.StringVar(&secret, "secret", "", "Authentication secret")
-
+	flag.Parse()
 	gin.SetMode(gin.ReleaseMode)
 
 	// DNS server
