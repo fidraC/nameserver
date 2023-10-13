@@ -9,32 +9,22 @@ import (
 )
 
 type Entry struct {
-	Domain string
+	Domain string `gorm:"uniqueIndex"` // Private. For database use
 	IP     string
 	Port   int16
 	WAF    bool
 }
 
-var entries []Entry
+var entries map[string]Entry // Map of domain name to IP/Port/WAF
 
-func AddEntry(e Entry) {
-	// Check for duplicate domains
-	RemoveEntry(e.Domain)
-	entries = append(entries, e)
+func AddEntry(domain string, e Entry) {
+	entries[domain] = e
 }
 
-func RemoveEntry(domain string) error {
-	for idx, entry := range entries {
-		if entry.Domain == domain {
-			entries = append(entries[:idx], entries[idx+1:]...)
-			break
-		}
-	}
-	return LoadConfig()
+func RemoveEntry(domain string) {
+	delete(entries, domain)
 }
-func SetEntries(e []Entry) {
-	entries = e
-}
+
 func construct(domain, ip string, port int16, wafEnabled bool) string {
 	var tls string
 	if domain == "localhost" {
@@ -60,8 +50,8 @@ func GenCaddyfile() string {
 	}
 }
 	`
-	for _, entry := range entries {
-		caddyfile += construct(entry.Domain, entry.IP, entry.Port, entry.WAF)
+	for domain, entry := range entries {
+		caddyfile += construct(domain, entry.IP, entry.Port, entry.WAF)
 	}
 	log.Println(caddyfile)
 	return caddyfile

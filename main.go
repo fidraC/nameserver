@@ -33,7 +33,12 @@ func init() {
 		log.Println("Error! ", err.Error())
 		return
 	}
-	cad.SetEntries(entries)
+	for _, entry := range entries {
+		// Clear domain to save memory
+		domain := entry.Domain
+		entry.Domain = ""
+		cad.AddEntry(domain, entry)
+	}
 	err = cad.LoadConfig()
 	if err != nil {
 		log.Println("Failed to load entries")

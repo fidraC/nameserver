@@ -1,7 +1,6 @@
 package api
 
 import (
-	"log"
 	"nameserver/cad"
 	"nameserver/config"
 	"nameserver/database"
@@ -18,15 +17,31 @@ func AddRecord(c *gin.Context) {
 		Value      string `json:"value" binding:"required"`
 		Port       int16  `json:"port"`
 		WAFEnabled bool   `json:"waf_enabled"`
+		Proxy      bool   `json:"proxy"`
 	}
 	if err := c.ShouldBindJSON(&record); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
+	recordType, ok := dns.StringToType[record.RecordType]
+	// Before doing anything, check if we're actually proxying. If not, just add DNS record
+	if !record.Proxy {
+		err := database.AddDNSRecord(record.Domain, recordType, record.Value)
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(200, gin.H{})
+		return
+	}
+
+	// Go's default int value is 0. Should be set to 80 instead
 	if record.Port == 0 {
 		record.Port = 80
 	}
 	var pointsTo string
+
+	// AAAA isn't supported yet. We'll just point to our IPv4 and proxy via IPv6
 	switch record.RecordType {
 	case "A":
 		pointsTo = config.ServerIP
@@ -40,26 +55,28 @@ func AddRecord(c *gin.Context) {
 	default:
 		pointsTo = record.Value
 	}
-	recordType, ok := dns.StringToType[record.RecordType]
+
 	if !ok {
-		c.String(400, "Invalid type")
+		c.JSON(400, gin.H{"error": "Invalid type"})
 		return
 	}
-	log.Println(record.Value, pointsTo)
+	// This checks if record type is not A/AAAA/CNAME. This means we can't proxy it (no need for caddy)
 	if !(record.Value == pointsTo) {
 		entry := cad.Entry{
-			Domain: record.Domain,
-			IP:     record.Value,
-			Port:   record.Port,
-			WAF:    record.WAFEnabled,
+			IP:   record.Value,
+			Port: record.Port,
+			WAF:  record.WAFEnabled,
 		}
-		err := database.AddCadEntry(&entry)
-		if err != nil {
+
+		cad.AddEntry(record.Domain, entry)
+		if err := cad.LoadConfig(); err != nil {
 			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}
-		cad.AddEntry(entry)
-		if err = cad.LoadConfig(); err != nil {
+		// Assign domain for database only.
+		entry.Domain = record.Domain
+		err := database.AddCadEntry(&entry)
+		if err != nil {
 			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}
