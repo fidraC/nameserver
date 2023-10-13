@@ -92,6 +92,11 @@ func AddRecord(c *gin.Context) {
 	c.JSON(200, gin.H{})
 }
 
+type record struct {
+	Cad *cad.Entry
+	DNS *database.DNSRecord
+}
+
 func GetRecords(c *gin.Context) {
 	domain := c.Param("domain")
 
@@ -104,15 +109,32 @@ func GetRecords(c *gin.Context) {
 		c.JSON(404, gin.H{})
 		return
 	}
-	c.JSON(200, dbRecords)
+	var records []record
+	for _, dnsRecord := range dbRecords {
+		record := record{
+			DNS: &dnsRecord,
+		}
+		if dnsRecord.Value == config.ServerIP || dnsRecord.Value == config.ServerCNAME {
+			record.Cad = cad.GetEntry(domain)
+		}
+		records = append(records, record)
+	}
+	c.JSON(200, records)
 }
 
 func RemoveRecord(c *gin.Context) {
+	// We need both the ID for when there are multiple entries for DNS and the domain since the ID isn't linked to caddy
 	var req struct {
-		ID uint `json:"id"`
+		ID     uint   `json:"id"`
+		Domain string `json:"domain"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+	cad.RemoveEntry(req.Domain)
+	if err := cad.LoadConfig(); err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
 	err := database.RemoveDNSRecord(req.ID)

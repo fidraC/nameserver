@@ -25,6 +25,11 @@ func RemoveEntry(domain string) {
 	delete(entries, domain)
 }
 
+func GetEntry(domain string) *Entry {
+	entry := entries[domain]
+	return &entry
+}
+
 func construct(domain, ip string, port int16, wafEnabled bool) string {
 	var tls string
 	if domain == "localhost" {
