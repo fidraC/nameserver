@@ -115,7 +115,7 @@ func GetRecords(c *gin.Context) {
 			DNS: &dnsRecord,
 		}
 		if dnsRecord.Value == config.ServerIP || dnsRecord.Value == config.ServerCNAME {
-			record.Cad = cad.GetEntry(domain)
+			record.Cad = cad.GetEntry(strings.TrimSuffix(domain, "."))
 		}
 		records = append(records, record)
 	}
