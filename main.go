@@ -1,9 +1,11 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"nameserver/api"
-	"flag"
+	"nameserver/cad"
+	"nameserver/database"
 
 	"github.com/gin-gonic/gin"
 
@@ -21,6 +23,20 @@ func startServer(addr, net string) {
 	err := server.ListenAndServe()
 	if err != nil {
 		panic(err)
+	}
+}
+
+func init() {
+	// Retrieve entries from database
+	entries, err := database.GetEntries()
+	if err != nil {
+		log.Println("Error! ", err.Error())
+		return
+	}
+	cad.SetEntries(entries)
+	err = cad.LoadConfig()
+	if err != nil {
+		log.Println("Failed to load entries")
 	}
 
 }

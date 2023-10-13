@@ -1,6 +1,8 @@
 package database
 
 import (
+	"nameserver/cad"
+
 	"github.com/glebarez/sqlite"
 	"github.com/miekg/dns"
 	"gorm.io/gorm"
@@ -22,8 +24,9 @@ func init() {
 		panic("failed to connect to database")
 	}
 	db.AutoMigrate(&DNSRecord{})
-}
+	db.AutoMigrate(&cad.Entry{})
 
+}
 
 func GetDNSRecords(domain string, recordType uint16) []DNSRecord {
 	var dbRecords []DNSRecord
@@ -46,7 +49,6 @@ func GetDNSRecords(domain string, recordType uint16) []DNSRecord {
 	}
 	return dbRecords
 }
-
 
 func AddDNSRecord(domain string, recordType uint16, value string) error {
 	record := DNSRecord{Domain: domain, RecordType: recordType, Value: value}

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"nameserver/cad"
 	"nameserver/config"
 	"nameserver/database"
@@ -44,26 +45,27 @@ func AddRecord(c *gin.Context) {
 		c.String(400, "Invalid type")
 		return
 	}
-
-	if !strings.HasSuffix(record.Domain, ".") {
-		record.Domain += "."
-	}
+	log.Println(record.Value, pointsTo)
 	if !(record.Value == pointsTo) {
-		entry := &cad.Entry{
+		entry := cad.Entry{
 			Domain: record.Domain,
 			IP:     record.Value,
-			Port:   record.Value,
+			Port:   record.Port,
 			WAF:    record.WAFEnabled,
 		}
-		err := database.AddCadEntry(entry)
+		err := database.AddCadEntry(&entry)
 		if err != nil {
 			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}
-		if err = cad.AddEntry(entry); err != nil {
+		cad.AddEntry(entry)
+		if err = cad.LoadConfig(); err != nil {
 			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}
+	}
+	if !strings.HasSuffix(record.Domain, ".") {
+		record.Domain += "."
 	}
 	err := database.AddDNSRecord(record.Domain, recordType, pointsTo)
 	if err != nil {
