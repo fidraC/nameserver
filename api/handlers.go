@@ -81,9 +81,7 @@ func AddRecord(c *gin.Context) {
 			return
 		}
 	}
-	if !strings.HasSuffix(record.Domain, ".") {
-		record.Domain += "."
-	}
+
 	err := database.AddDNSRecord(record.Domain, recordType, pointsTo)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})

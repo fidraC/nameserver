@@ -2,6 +2,7 @@ package database
 
 import (
 	"nameserver/cad"
+	"strings"
 
 	"github.com/glebarez/sqlite"
 	"github.com/miekg/dns"
@@ -51,6 +52,9 @@ func GetDNSRecords(domain string, recordType uint16) []DNSRecord {
 }
 
 func AddDNSRecord(domain string, recordType uint16, value string) error {
+	if !strings.HasSuffix(domain, ".") {
+		domain += "."
+	}
 	record := DNSRecord{Domain: domain, RecordType: recordType, Value: value}
 	return db.Create(&record).Error
 }
