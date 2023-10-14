@@ -8,7 +8,7 @@ import (
 func TestAdd(t *testing.T) {
 	cad.AddEntry(&cad.Entry{
 		Domain: "git.duti.dev",
-		IP: "127.0.0.1",
+		Dest: "127.0.0.1",
 		Port: "3000",
 		WAF: true,
 	})

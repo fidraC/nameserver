@@ -14,7 +14,7 @@ func AddRecord(c *gin.Context) {
 	var record struct {
 		Domain     string `json:"domain" binding:"required"`
 		RecordType string `json:"type" binding:"required"`
-		Value      string `json:"value" binding:"required"`
+		Dest       string `json:"dest" binding:"required"`
 		Port       int16  `json:"port"`
 		WAFEnabled bool   `json:"waf_enabled"`
 		Proxy      bool   `json:"proxy"`
@@ -26,7 +26,7 @@ func AddRecord(c *gin.Context) {
 	recordType, ok := dns.StringToType[record.RecordType]
 	// Before doing anything, check if we're actually proxying. If not, just add DNS record
 	if !record.Proxy {
-		err := database.AddDNSRecord(record.Domain, recordType, record.Value)
+		err := database.AddDNSRecord(record.Domain, recordType, record.Dest)
 		if err != nil {
 			c.JSON(500, gin.H{"error": err.Error()})
 			return
@@ -53,7 +53,7 @@ func AddRecord(c *gin.Context) {
 	case "CNAME":
 		pointsTo = config.ServerCNAME
 	default:
-		pointsTo = record.Value
+		pointsTo = record.Dest
 	}
 
 	if !ok {
@@ -61,9 +61,9 @@ func AddRecord(c *gin.Context) {
 		return
 	}
 	// This checks if record type is not A/AAAA/CNAME. This means we can't proxy it (no need for caddy)
-	if !(record.Value == pointsTo) {
+	if !(record.Dest == pointsTo) {
 		entry := cad.Entry{
-			IP:   record.Value,
+			Dest: record.Dest,
 			Port: record.Port,
 			WAF:  record.WAFEnabled,
 		}

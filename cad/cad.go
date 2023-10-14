@@ -10,12 +10,12 @@ import (
 
 type Entry struct {
 	Domain string `gorm:"uniqueIndex"` // Private. For database use
-	IP     string
+	Dest   string
 	Port   int16
 	WAF    bool
 }
 
-var entries =  make(map[string]Entry) // Map of domain name to IP/Port/WAF
+var entries = make(map[string]Entry) // Map of domain name to IP/Port/WAF
 
 func AddEntry(domain string, e Entry) {
 	entries[domain] = e
@@ -35,11 +35,17 @@ func construct(domain, ip string, port int16, wafEnabled bool) string {
 	if domain == "localhost" {
 		tls = "tls internal"
 	}
+	var proto string
+	if port == 443 {
+		proto = "https"
+	} else {
+		proto = "http"
+	}
 	return "\n" + fmt.Sprintf(`https://%s {
 		ja3 block_bots %t
 		%s
-		reverse_proxy http://%s:%d
-}`, domain, wafEnabled, tls, ip, port)
+		reverse_proxy %s://%s:%d
+}`, domain, wafEnabled, tls, proto, ip, port)
 }
 
 func GenCaddyfile() string {
@@ -56,7 +62,7 @@ func GenCaddyfile() string {
 }
 	`
 	for domain, entry := range entries {
-		caddyfile += construct(domain, entry.IP, entry.Port, entry.WAF)
+		caddyfile += construct(domain, entry.Dest, entry.Port, entry.WAF)
 	}
 	log.Println(caddyfile)
 	return caddyfile
