@@ -5,6 +5,7 @@ go 1.20
 require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/glebarez/sqlite v1.9.0
+	github.com/golang-jwt/jwt/v5 v5.0.0
 	github.com/miekg/dns v1.1.56
 	gorm.io/gorm v1.25.4
 )

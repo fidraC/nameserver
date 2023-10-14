@@ -4,7 +4,9 @@ import (
 	"flag"
 	"log"
 	"nameserver/api"
+	"nameserver/auth"
 	"nameserver/cad"
+	"nameserver/config"
 	"nameserver/database"
 
 	"github.com/gin-gonic/gin"
@@ -16,7 +18,6 @@ import (
 
 var http_addr string
 var dns_addr string
-var secret string
 
 func startServer(addr, net string) {
 	server := &dns.Server{Addr: addr, Net: net, TsigSecret: nil, ReusePort: true}
@@ -49,7 +50,6 @@ func init() {
 func main() {
 	flag.StringVar(&http_addr, "http-addr", "127.0.0.1:8001", "HTTP Listener Address")
 	flag.StringVar(&dns_addr, "dns-addr", ":53", "DNS Listener Address")
-	flag.StringVar(&secret, "secret", "", "Authentication secret")
 	flag.Parse()
 	gin.SetMode(gin.ReleaseMode)
 
@@ -62,19 +62,38 @@ func main() {
 
 	// API server
 	r := gin.Default()
-	r.Use(func(c *gin.Context) {
-		if c.GetHeader("Authorization") != secret {
-			c.AbortWithStatus(401)
+	r.SetTrustedProxies([]string{"127.0.0.1"})
+
+	apiGroup := r.Group("/api/")
+	apiGroup.Use(func(ctx *gin.Context) {
+		authCookie, err := ctx.Cookie("auth")
+		if err != nil {
+			ctx.JSON(401, gin.H{"error": err.Error()})
+			ctx.Abort()
 			return
 		}
-
-		c.Next()
+		if err := auth.Validate(authCookie); err != nil {
+			ctx.JSON(401, gin.H{"error": err.Error()})
+			ctx.Abort()
+			return
+		}
+		ctx.Next()
 	})
-	r.SetTrustedProxies([]string{"127.0.0.1"})
-	r.POST("/api/records/add", api.AddRecord)
-	r.GET("/api/records/:domain", api.GetRecords)
-	r.POST("/api/records/remove", api.RemoveRecord)
-	r.GET("/api/domains", api.GetDomains)
+	apiGroup.POST("/api/records/add", api.AddRecord)
+	apiGroup.POST("/api/records/:domain", api.GetRecords)
+	apiGroup.POST("/api/records/remove", api.RemoveRecord)
+	apiGroup.POST("/api/domains", api.GetDomains)
+	r.POST("/auth/login", func(ctx *gin.Context) {
+		if pswd, _ := ctx.GetPostForm("password"); pswd == config.ServerPassword {
+			token, err := auth.NewToken()
+			if err != nil {
+				ctx.JSON(401, gin.H{"error": err.Error()})
+				return
+			}
+			ctx.SetCookie("auth", token, 3600, "/", "", true, true)
+			ctx.JSON(200, gin.H{})
+		}
+	})
 
 	log.Println("Listening on ", http_addr)
 	err := r.Run(http_addr)
