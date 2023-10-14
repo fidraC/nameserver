@@ -123,22 +123,26 @@ func GetRecords(c *gin.Context) {
 func RemoveRecord(c *gin.Context) {
 	// We need both the ID for when there are multiple entries for DNS and the domain since the ID isn't linked to caddy
 	var req struct {
-		ID     uint   `json:"id"`
+		ID     *uint  `json:"id"`
 		Domain string `json:"domain"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
-	cad.RemoveEntry(req.Domain)
-	if err := cad.LoadConfig(); err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
+	if req.Domain != "" {
+		cad.RemoveEntry(req.Domain)
+		if err := cad.LoadConfig(); err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
 	}
-	err := database.RemoveDNSRecord(req.ID)
-	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
+	if req.ID != nil {
+		err := database.RemoveDNSRecord(*req.ID)
+		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
 	}
 	c.JSON(200, gin.H{})
 }
