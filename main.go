@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"flag"
 	"log"
 	"nameserver/api"
@@ -8,6 +9,7 @@ import (
 	"nameserver/cad"
 	"nameserver/config"
 	"nameserver/database"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -18,6 +20,9 @@ import (
 
 var http_addr string
 var dns_addr string
+
+//go:embed static/*
+var staticEmbed embed.FS
 
 func startServer(addr, net string) {
 	server := &dns.Server{Addr: addr, Net: net, TsigSecret: nil, ReusePort: true}
@@ -64,21 +69,18 @@ func main() {
 	r := gin.Default()
 	r.SetTrustedProxies([]string{"127.0.0.1"})
 
-	apiGroup := r.Group("/api/")
-	apiGroup.Use(func(ctx *gin.Context) {
+	r.GET("/", func(ctx *gin.Context) {
 		authCookie, err := ctx.Cookie("auth")
-		if err != nil {
-			ctx.JSON(401, gin.H{"error": err.Error()})
-			ctx.Abort()
-			return
+		if err != nil || auth.Validate(authCookie) != nil {
+			ctx.Header("Location", "/login.html")
+		} else {
+			ctx.Header("Location", "/dashboard.html")
 		}
-		if err := auth.Validate(authCookie); err != nil {
-			ctx.JSON(401, gin.H{"error": err.Error()})
-			ctx.Abort()
-			return
-		}
-		ctx.Next()
+		ctx.String(302, "")
 	})
+
+	apiGroup := r.Group("/api/")
+	apiGroup.Use(authMiddleware)
 	apiGroup.POST("/api/records/add", api.AddRecord)
 	apiGroup.POST("/api/records/:domain", api.GetRecords)
 	apiGroup.POST("/api/records/remove", api.RemoveRecord)
@@ -91,8 +93,37 @@ func main() {
 				return
 			}
 			ctx.SetCookie("auth", token, 3600, "/", "", true, true)
-			ctx.JSON(200, gin.H{})
+			ctx.Header("Location", "/dashboard.html")
+			ctx.JSON(302, gin.H{})
+			return
 		}
+		ctx.Header("Location", "/login.html?error=true")
+		ctx.String(302, "Access denied")
+	})
+	r.GET("/:staticPath", func(ctx *gin.Context) {
+		path := ctx.Param("staticPath")
+		if path == "dashboard.html" {
+			authMiddleware(ctx)
+		}
+		file, err := staticEmbed.ReadFile("static/" + path)
+		if err != nil {
+			ctx.String(404, "Not found")
+			return
+		}
+		pathSplit := strings.Split(path, ".")
+		if len(pathSplit) > 1 {
+			var contentType string = "text/plain"
+			switch pathSplit[len(pathSplit)-1] {
+			case "css":
+				contentType = "text/css"
+			case "js":
+				contentType = "text/javascript"
+			case "html":
+				contentType = "text/html"
+			}
+			ctx.Header("content-type", contentType)
+		}
+		ctx.String(200, string(file))
 	})
 
 	log.Println("Listening on ", http_addr)
@@ -101,4 +132,15 @@ func main() {
 		panic(err)
 	}
 
+}
+
+func authMiddleware(ctx *gin.Context) {
+	authCookie, _ := ctx.Cookie("auth")
+	if err := auth.Validate(authCookie); err != nil {
+		ctx.Header("Location", "/")
+		ctx.JSON(302, gin.H{"error": err.Error()})
+		ctx.Abort()
+		return
+	}
+	ctx.Next()
 }
