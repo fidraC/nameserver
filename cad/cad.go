@@ -9,10 +9,10 @@ import (
 )
 
 type Entry struct {
-	Domain string `gorm:"uniqueIndex"` // Private. For database use
-	Dest   string
-	Port   int16
-	WAF    bool
+	Domain string `json:"domain" gorm:"uniqueIndex"` // Private. For database use
+	Dest   string `json:"dest"`
+	Port   int16 `json:"port"`
+	WAF    bool  `json:"waf"`
 }
 
 var entries = make(map[string]Entry) // Map of domain name to IP/Port/WAF

@@ -91,8 +91,8 @@ func AddRecord(c *gin.Context) {
 }
 
 type record struct {
-	Cad *cad.Entry
-	DNS *database.DNSRecord
+	Cad *cad.Entry `json:"cad,omitempty"`
+	DNS *database.DNSRecord `json:"dns,omitempty"`
 }
 
 func GetRecords(c *gin.Context) {
